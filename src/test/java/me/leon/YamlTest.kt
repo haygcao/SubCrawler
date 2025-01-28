@@ -2,22 +2,11 @@ package me.leon
 
 import me.leon.support.*
 import org.junit.jupiter.api.Test
+import org.yaml.snakeyaml.LoaderOptions
 import org.yaml.snakeyaml.Yaml
 import org.yaml.snakeyaml.constructor.Constructor
 
 class YamlTest {
-
-    fun yamlLocalTest() {
-
-        with(Yaml(Constructor(Clash::class.java)).load(BIHAI.readText()) as Clash) {
-            println(
-                this.proxies
-                    .map(Node::toNode)
-                    //                    .filterIsInstance<V2ray>()
-                    .joinToString("|") { sub -> sub.toUri() }
-            )
-        }
-    }
 
     @Test
     fun yaml() {
@@ -33,7 +22,7 @@ class YamlTest {
             println(url)
             val data = url.readFromNet()
             if (data.isNotEmpty()) {
-                with(Yaml(Constructor(Clash::class.java)).load(data.fixYaml()) as Clash) {
+                with(Yaml(Constructor(Clash::class.java, LoaderOptions())).load(data.fixYaml()) as Clash) {
                     println(
                         this.proxies.map(Node::toNode).filterIsInstance<V2ray>().joinToString(
                             "|"

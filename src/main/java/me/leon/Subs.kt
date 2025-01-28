@@ -42,18 +42,20 @@ data class V2ray(
     var scy: String = "auto",
     /** network */
     var net: String = "tcp",
-
-    /** 伪装域名 */
-    var host: String = "",
-    /** 伪装路径 */
-    var path: String = "",
-
-    /** 默认false,空串即可 */
-    var tls: String = "",
-    var sni: String = "",
 ) : Sub() {
     var v: String = "2"
     var ps: String = ""
+
+    /** 伪装域名 */
+    var host: String = ""
+
+    /** 伪装路径 */
+    var path: String = ""
+
+    /** 默认false,空串即可 */
+    var tls: String = ""
+        get() = if (field == "tls") "true" else field
+    var sni: String = ""
 
     /** 伪装类型 tcp/kcp/QUIC 默认none */
     var type: String = "none"
@@ -64,7 +66,7 @@ data class V2ray(
             ps = value
         }
     override var serverPort: Int = 0
-        get() = port.toInt()
+        get() = runCatching { port.toInt() }.getOrDefault(-1)
     override val SERVER
         get() = add
     override var nation: String = ""
@@ -88,9 +90,10 @@ data class SS(
             remark = value
         }
     override val serverPort
-        get() = port.toInt()
+        get() = runCatching { port.toInt() }.getOrDefault(-1)
     override val SERVER
         get() = server
+
     override fun toUri() = "ss://${"$method:$pwd@$server:$port".b64Encode()}#${name.urlEncode()}"
 
     override fun info() = "$nation $remark ss $server:$port"
@@ -116,7 +119,7 @@ data class SSR(
             remarks = value
         }
     override val serverPort
-        get() = port.toInt()
+        get() = runCatching { port.toInt() }.getOrDefault(-1)
     override val SERVER
         get() = server
     override var nation: String = ""
@@ -147,22 +150,81 @@ data class Trojan(val password: String = "", val server: String = "", val port: 
     private val params
         get() = if (query.isEmpty()) "" else "?$query"
     override val serverPort
-        get() = port.toInt()
+        get() = runCatching { port.toInt() }.getOrDefault(-1)
     override val SERVER
         get() = server
     override var nation: String = ""
 
     override fun toUri() = "trojan://${"$password@$server:$port$params"}#${name.urlEncode()}"
     override fun info() =
-        if (query.isEmpty()) "$nation $name trojan $server:$port"
-        else "$nation $remark trojan $server:$port?$query"
+        if (query.isEmpty()) {
+            "$nation $name trojan $server:$port"
+        } else {
+            "$nation $remark trojan $server:$port?$query"
+        }
+}
+
+/** refer https://github.com/XTLS/Xray-core/issues/91 */
+data class Vless(val uuid: String = "", val server: String = "", val port: String = "") : Sub() {
+    var remark: String = ""
+    var query: String = ""
+    override var name: String
+        get() = remark.ifEmpty { "$SERVER:$serverPort-VL-${hashCode()}" }
+        set(value) {
+            remark = value
+        }
+    private val params
+        get() = if (query.isEmpty()) "" else "?$query"
+    override val serverPort
+        get() = runCatching { port.toInt() }.getOrDefault(-1)
+    override val SERVER
+        get() = server
+    override var nation: String = ""
+
+    override fun toUri() =
+        "vless://${"${uuid.urlEncode()}@$server:$port$params"}#${name.urlEncode()}"
+
+    override fun info() =
+        if (query.isEmpty()) {
+            "$nation $name vless $server:$port"
+        } else {
+            "$nation $remark vless $server:$port?$query"
+        }
+}
+
+data class Hysteria2(val uuid: String = "", val server: String = "", val port: String = "") : Sub() {
+    var remark: String = ""
+    var query: String = ""
+    override var name: String
+        get() = remark.ifEmpty { "$SERVER:$serverPort-hys2-${hashCode()}" }
+        set(value) {
+            remark = value
+        }
+    private val params
+        get() = if (query.isEmpty()) "" else "?$query"
+    override val serverPort
+        get() = runCatching { port.toInt() }.getOrDefault(-1)
+    override val SERVER
+        get() = server
+    override var nation: String = ""
+
+    override fun toUri() =
+        "hysteria2://${"${uuid.urlEncode()}@$server:$port$params"}#${name.urlEncode()}"
+
+    override fun info() =
+        if (query.isEmpty()) {
+            "$nation $name vless $server:$port"
+        } else {
+            "$nation $remark vless $server:$port?$query"
+        }
 }
 
 fun Sub.methodUnSupported() =
-    this is SSR && method in SSR_unSupportCipher ||
-        this is SS && method in SS_unSupportCipher ||
-        this is V2ray && net in VMESS_unSupportProtocol
+    this is SSR && (method in SSR_unSupportMethod || protocol in SSR_unSupportProtocol) ||
+            this is SS && method in SS_unSupportCipher ||
+            this is V2ray && net in VMESS_unSupportProtocol
 
-val SSR_unSupportCipher = arrayOf("none", "rc4", "rc4-md5")
-val SS_unSupportCipher = arrayOf("rc4-md5", "aes-128-cfb", "aes-256-cfb")
-val VMESS_unSupportProtocol = arrayOf("none")
+val SSR_unSupportMethod = arrayOf("none", "rc4", "rc4-md5")
+val SSR_unSupportProtocol = arrayOf("auth_chain_a")
+val SS_unSupportCipher = arrayOf("rc4-md5", "aes-128-cfb", "aes-256-cfb", "none")
+val VMESS_unSupportProtocol = arrayOf("none", "grpc", "h2", "auto")

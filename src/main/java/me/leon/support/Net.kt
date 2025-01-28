@@ -3,9 +3,9 @@ package me.leon.support
 import java.io.DataOutputStream
 import java.io.File
 import java.net.*
-import java.util.concurrent.Executors
 import kotlin.system.measureTimeMillis
-import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import me.leon.FAIL_IPS
 
 val failIpPorts by lazy { FAIL_IPS.readLines().toHashSet() }
@@ -49,7 +49,6 @@ fun String.ping(
         println("fast failed")
         -1
     } else if (passes.contains(this)) {
-        println("fast pass")
         1
     } else {
         runCatching {
@@ -58,13 +57,11 @@ fun String.ping(
                 if (reachable) {
                     (System.currentTimeMillis() - start).also { passes.add(this) }
                 } else {
-                    println("$this unreachable")
                     exceptionHandler.invoke(this)
                     -1
                 }
             }
             .getOrElse {
-                println("ping err $it  $this")
                 exceptionHandler.invoke(this)
                 -1
             }
@@ -183,6 +180,4 @@ fun String.quickPing(timeout: Int = 1000) =
         FAIL_IPS.writeLine(it)
     }
 
-val DISPATCHER =
-    Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 2)
-        .asCoroutineDispatcher()
+@OptIn(ExperimentalCoroutinesApi::class) val DISPATCHER = Dispatchers.IO.limitedParallelism(256)
